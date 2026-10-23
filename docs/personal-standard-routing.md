@@ -1,5 +1,9 @@
 # Standard：同步精简版分流
 
+## 暂定修订：YouTube
+
+新增“📺 YouTube”独立分组，默认全局自动选择，可选故障转移、地区组和手动节点。MetaCubeX youtube 清单来源固定于 c8c1a27018377ec8a7f60c320efb3023681909eb，与 clash 仓库同源转换，共 178 条。规则放在 AI 后、Emby 和通用 Google/CN 前；广告规则保持最高优先级。仅增加该组和规则源，既有 Google/Play、DNS、广告、AI、Emby、Telegram 的配置不变。需要用户实际测试播放与 Google Play 下载，不代表视频广告拦截功能。
+
 内置 Clash/Mihomo Standard 已同步 clash 仓库精简版，来源提交 ec674a9b6a22b204bc82fc35924f3feb106b034e（config/MiSub_Compact_20261023.ini 及配套快照）。
 
 - 地区保留香港、台湾、日本、新加坡、美国、欧洲、其他；欧洲合并，地区只设一个手选组。无节点的地区不显示；全局自动选择和故障转移保留。内置版仍支持节点地区 metadata 和 regionOverrides，这些原生能力在通用 INI 中不能完整复现。

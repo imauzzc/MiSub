@@ -1,5 +1,5 @@
-// Synced from imauzzc/clash ec674a9b6a22b204bc82fc35924f3feb106b034e.
-// Compact regional selectors, MetaCubeX AI, maintained Emby list; DNS stays in safe-dns.js.
+// Synced compact policy with MetaCubeX YouTube source 8afaa2aea298a7bc346be40f639138d72fe403c1.
+// DNS stays in safe-dns.js.
 export const PERSONAL_STANDARD = {
     groups: [
         {
@@ -113,6 +113,22 @@ export const PERSONAL_STANDARD = {
             proxies: ['REJECT', 'DIRECT'],
         },
         {
+            name: '📺 YouTube',
+            type: 'select',
+            proxies: [
+                '♻️ 自动选择',
+                '🔯 故障转移',
+                '🇭🇰 香港节点',
+                '🇹🇼 台湾节点',
+                '🇯🇵 日本节点',
+                '🇸🇬 狮城节点',
+                '🇺🇸 美国节点',
+                '🇪🇺 欧洲节点',
+                '🌍 其他节点',
+                '👋 手动切换',
+            ],
+        },
+        {
             name: '🎬 Emby',
             type: 'select',
             proxies: [
@@ -201,6 +217,7 @@ export const PERSONAL_STANDARD = {
         'RULE-SET,ADS_PROGRAM,🎬 视频广告',
         'RULE-SET,ADS_CHINA,🎬 视频广告',
         'RULE-SET,AI,🤖 智能 AI',
+        'RULE-SET,YOUTUBE,📺 YouTube',
         'RULE-SET,EMBY,🎬 Emby',
         'IP-CIDR,91.108.16.0/22,📲 TG亚太,no-resolve',
         'IP-CIDR,91.108.56.0/23,📲 TG亚太,no-resolve',
@@ -308,6 +325,14 @@ export const PERSONAL_STANDARD = {
             format: 'text',
             url: 'https://raw.githubusercontent.com/imauzzc/clash/main/rules/Emby.list',
             path: './ruleset/Emby.list',
+            interval: 86400,
+        },
+        YOUTUBE: {
+            type: 'http',
+            behavior: 'classical',
+            format: 'text',
+            url: 'https://raw.githubusercontent.com/imauzzc/clash/8afaa2aea298a7bc346be40f639138d72fe403c1/rules/compact/YouTube_MetaCubeX.list',
+            path: './ruleset/YouTube_MetaCubeX.list',
             interval: 86400,
         },
     },

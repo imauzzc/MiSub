@@ -61,7 +61,11 @@ describe('Compact personal Clash Standard', () => {
             name.startsWith('⚡️');
         expect(
             config['proxy-groups'].filter(
-                (g) => !touched(g.name) && !g.name.startsWith('📲 TG') && g.name !== '🎬 Emby'
+                (g) =>
+                    !touched(g.name) &&
+                    !g.name.startsWith('📲 TG') &&
+                    g.name !== '🎬 Emby' &&
+                    g.name !== '📺 YouTube'
             )
         ).toEqual(
             original
@@ -109,6 +113,7 @@ describe('Compact personal Clash Standard', () => {
                 (r) =>
                     !r.includes(',🎬 Emby') &&
                     !r.includes(',🤖 智能 AI') &&
+                    !r.includes(',📺 YouTube') &&
                     !r.includes(',📲 TG') &&
                     !/^RULE-SET,ADS_(PROGRAM|CHINA),/.test(r)
             )
@@ -144,6 +149,7 @@ describe('Compact personal Clash Standard', () => {
             'EMBY',
             'MICROSOFT',
             'SOCIAL',
+            'YOUTUBE',
         ]);
         expect(config['rule-providers'].SOCIAL.url).toContain(
             '/Clash/Providers/Ruleset/Telegram.yaml'
@@ -215,6 +221,26 @@ describe('Compact personal Clash Standard', () => {
             ])
                 expect(config[key]).toEqual(full[key]);
         }
+    });
+
+    it('routes YouTube before general Google and CN while keeping ads first', () => {
+        const config = render();
+        expect(config.rules[4]).toBe('RULE-SET,YOUTUBE,📺 YouTube');
+        expect(config.rules.indexOf('RULE-SET,YOUTUBE,📺 YouTube')).toBeLessThan(
+            config.rules.indexOf('DOMAIN-SUFFIX,google.com,🚀 节点选择')
+        );
+        expect(config['rule-providers'].YOUTUBE).toMatchObject({
+            type: 'http',
+            behavior: 'classical',
+            format: 'text',
+        });
+        expect(config['rule-providers'].YOUTUBE.url).toContain(
+            '/rules/compact/YouTube_MetaCubeX.list'
+        );
+        expect(config['proxy-groups'].find((g) => g.name === '📺 YouTube').proxies[0]).toBe(
+            '♻️ 自动选择'
+        );
+        validateReferences(config);
     });
 
     it('does not create invalid references or cross-region defaults when regions are absent', () => {
