@@ -51,17 +51,9 @@ export function validateClashConfig(config, mode) {
     assert(array(dns['nameserver-policy']?.['geosite:cn']).length > 0, 'Clash geosite:cn DNS policy is missing');
 
     assertNoLoopbackNodes(config.proxies, 'Clash');
-    const groups = array(config['proxy-groups']);
-    const personalAi = groups.find(group => group.name === '💬 Ai平台');
-    if (personalAi) {
-        assert(personalAi.type === 'select' && array(personalAi.proxies)[0] === '🚀 节点选择', 'Clash personal AI must default to the proxy selector');
-        assert(groups.some(group => group.name === '🚀 节点选择'), 'Clash personal AI proxy selector is missing');
-        assert(array(config.rules).some(rule => String(rule).startsWith('RULE-SET,') && String(rule).endsWith(',💬 Ai平台')), 'Clash personal AI rules are missing');
-    } else {
-        const aiGroups = groups.filter(group => String(group?.name || '').startsWith('🤖'));
-        assert(aiGroups.length > 0, 'Clash AI groups are missing');
-        assert(aiGroups.every(group => !array(group.proxies).includes('DIRECT')), 'Clash AI group allows DIRECT');
-    }
+    const aiGroups = array(config['proxy-groups']).filter(group => String(group?.name || '').startsWith('🤖'));
+    assert(aiGroups.length > 0, 'Clash AI groups are missing');
+    assert(aiGroups.every(group => !array(group.proxies).includes('DIRECT')), 'Clash AI group allows DIRECT');
     return true;
 }
 

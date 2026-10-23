@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import yaml from 'js-yaml';
 import { generateBuiltinClashConfig } from '../../functions/modules/subscription/builtin-clash-generator.js';
-import { buildPersonalStandardPolicy } from '../../functions/modules/subscription/personal-standard.js';
-import { PERSONAL_STANDARD } from '../../functions/modules/subscription/personal-standard-data.js';
+import { urlsToClashProxies } from '../../functions/utils/url-to-clash.js';
+import {
+    POLICY_GROUPS,
+    getBuiltinRules,
+    getRemoteProviderDefinitions,
+    pruneProxyGroups,
+} from '../../functions/modules/subscription/builtin-rules-provider.js';
 
 const names = ['HK-01', 'TW-01', 'JP-01', 'SG-01', 'US-01', 'DE-01'];
 const nodes = names
@@ -41,115 +46,130 @@ function validateReferences(config) {
     groups.forEach((g) => visit(g.name));
 }
 
-describe('Personal native Clash Standard routing', () => {
-    it('replaces service proliferation with the 27 requested groups plus hidden built-in DNS', () => {
+describe('Three bounded revisions to original Clash Standard', () => {
+    it('keeps every unrelated original group exactly, including DNS and region selectors', () => {
         const config = render();
-        expect(config['proxy-groups'].map((g) => g.name)).toEqual([
-            '🌐 DNS 出口',
-            ...PERSONAL_STANDARD.groups.map((g) => g.name),
-        ]);
-        expect(config['proxy-groups'][0].hidden).toBe(true);
+        const proxies = urlsToClashProxies(nodes.split('\n'));
+        const original = pruneProxyGroups(POLICY_GROUPS.STD(proxies), proxies);
+        const touched = (name) =>
+            name.startsWith('🤖') || name === '🎥 流媒体' || name === '📲 Telegram';
         expect(
-            config['proxy-groups'].some((g) => /🤖|Spotify|游戏平台|视频广告|流媒体/.test(g.name))
-        ).toBe(false);
-        validateReferences(config);
-    });
-
-    it('preserves the working built-in DNS block, ports and node conversion', () => {
-        const standard = render();
-        const full = render({ ruleLevel: 'full' });
-        expect(standard.dns).toEqual(full.dns);
-        expect(standard.proxies).toEqual(full.proxies);
-        for (const key of [
-            'mixed-port',
-            'allow-lan',
-            'bind-address',
-            'ipv6',
-            'external-controller',
-        ])
-            expect(standard[key]).toEqual(full[key]);
-    });
-
-    it('puts Play downloads and Google CN ahead of direct, ads and China rules', () => {
-        const config = render();
-        const unban = Object.entries(config['rule-providers']).find(([, p]) =>
-            p.url.endsWith('/UnBan.list')
-        )[0];
-        const unbanIndex = config.rules.indexOf(`RULE-SET,${unban},🎯 全球直连`);
-        for (const rule of [
-            'DOMAIN,play.google.com,📢 谷歌',
-            'DOMAIN,dl.google.com,📢 谷歌',
-            'DOMAIN-SUFFIX,gvt1.com,📢 谷歌',
-            'DOMAIN-SUFFIX,googleapis.cn,📢 谷歌',
-            'DOMAIN-SUFFIX,xn--ngstr-lra8j.com,📢 谷歌',
-        ]) {
-            const index = config.rules.indexOf(rule);
-            expect(index, rule).toBeGreaterThanOrEqual(0);
-            expect(index, rule).toBeLessThan(unbanIndex);
-        }
-        expect(config.rules.at(-1)).toBe('MATCH,🐟 漏网之鱼');
-        expect(config.rules.at(-2)).toBe('GEOIP,CN,🎯 全球直连');
-    });
-
-    it('keeps regional Telegram IP priority and no-resolve, and embeds personal lists', () => {
-        const config = render();
-        const apac = config.rules.indexOf('IP-CIDR,149.154.168.0/22,📲 TG亚太,no-resolve');
-        const fallback = config.rules.indexOf('IP-CIDR,149.154.160.0/20,📲 TG兜底,no-resolve');
-        expect(apac).toBeGreaterThan(0);
-        expect(fallback).toBeGreaterThan(apac);
-        expect(config.rules).toContain('IP-CIDR6,2001:b28:f23f::/48,📲 TG亚太,no-resolve');
-        expect(config.rules.indexOf('DOMAIN-SUFFIX,emby.wtf,🎬 Emby')).toBeLessThan(apac);
+            config['proxy-groups'].filter(
+                (g) => !touched(g.name) && !g.name.startsWith('📲 TG') && g.name !== '🎬 Emby'
+            )
+        ).toEqual(original.filter((g) => !touched(g.name)));
         expect(
-            Object.values(config['rule-providers']).some((p) => p.url.includes('imauzzc/clash'))
-        ).toBe(false);
-    });
-
-    it('uses pinned text lists without the custom template YAML URL rewrite', () => {
-        for (const provider of Object.values(render()['rule-providers'])) {
-            expect(provider).toMatchObject({ behavior: 'classical', format: 'text' });
-            expect(provider.url).toMatch(
-                /ACL4SSR@433381ebc4b1de59350fa8bed2a04a888228f801\/Clash\/.*\.list$/
-            );
-        }
-    });
-
-    it('has no dangling, empty automatic groups or cycles when regions are absent', () => {
-        const config = yaml.load(
-            generateBuiltinClashConfig('trojan://test@192.0.2.1:443#Unknown', { ruleLevel: 'std' })
+            config['proxy-groups'].filter((g) => g.name.startsWith('🤖')).map((g) => g.name)
+        ).toEqual(['🤖 智能 AI']);
+        expect(config['proxy-groups'].find((g) => g.name === '🤖 智能 AI').proxies).not.toContain(
+            'DIRECT'
         );
+        expect(config['proxy-groups'].some((g) => g.name === '🎥 流媒体')).toBe(false);
+        expect(config['proxy-groups'].some((g) => g.name === '🎬 Emby')).toBe(true);
+        expect(
+            config['proxy-groups'].filter((g) => g.name.startsWith('📲')).map((g) => g.name)
+        ).toEqual(['📲 TG亚太', '📲 TG北美', '📲 TG欧洲', '📲 TG兜底']);
         validateReferences(config);
-        for (const name of ['🇸🇬 新加坡节点', '🇺🇸 美国节点', '🌍 欧洲节点'])
-            expect(config['proxy-groups'].find((g) => g.name === name).proxies).toEqual(['REJECT']);
     });
 
-    it('honors full DNS overrides without leaving the hidden DNS group behind', () => {
+    it('preserves original rule ordering outside the three changes, including Google, ads and CN', () => {
+        const config = render();
+        const original = getBuiltinRules('STD', 'clash')
+            .filter((r) => typeof r === 'string' || r.provider !== 'STREAM')
+            .map((r) => {
+                if (typeof r !== 'string') return `RULE-SET,${r.provider},${r.target}`;
+                const parts = r.split(',');
+                if (parts[2]?.startsWith('🤖')) parts[2] = '🤖 智能 AI';
+                return parts.join(',');
+            });
+        expect(
+            config.rules.filter((r) => !r.includes(',🎬 Emby') && !r.includes(',📲 TG'))
+        ).toEqual(original);
+        expect(config.rules[0]).toBe('RULE-SET,ADS,🎬 视频广告');
+        expect(config.rules.slice(-4)).toEqual([
+            'DOMAIN-SUFFIX,google.com,🚀 节点选择',
+            'DOMAIN-SUFFIX,github.com,🚀 节点选择',
+            'GEOIP,CN,DIRECT',
+            'MATCH,🚀 节点选择',
+        ]);
+        expect(config.rules.some((r) => /gvt1|googleapis.cn|GoogleCN|UnBan/.test(r))).toBe(false);
+        expect(config.rules).toContain('DOMAIN-SUFFIX,claude.ai,🤖 智能 AI');
+        expect(config.rules).toContain('DOMAIN-SUFFIX,gemini.google.com,🤖 智能 AI');
+    });
+
+    it('retains original YAML providers except Netflix and adds only built-in Telegram', () => {
+        const config = render();
+        const originals = getRemoteProviderDefinitions('clash', getBuiltinRules('STD', 'clash'));
+        delete originals.STREAM;
+        for (const [name, provider] of Object.entries(originals))
+            expect(config['rule-providers'][name]).toEqual(provider);
+        expect(Object.keys(config['rule-providers']).sort()).toEqual([
+            'ADS',
+            'AI',
+            'APPLE',
+            'MICROSOFT',
+            'SOCIAL',
+        ]);
+        expect(config['rule-providers'].SOCIAL.url).toContain(
+            '/Clash/Providers/Ruleset/Telegram.yaml'
+        );
+    });
+
+    it('keeps Emby rules and Telegram regional priority and no-resolve', () => {
+        const config = render();
+        expect(config.rules).toContain('DOMAIN-SUFFIX,emby.wtf,🎬 Emby');
+        expect(config.rules).toContain('IP-CIDR6,2001:b28:f23f::/48,📲 TG亚太,no-resolve');
+        const region = config.rules.indexOf('IP-CIDR,149.154.168.0/22,📲 TG亚太,no-resolve');
+        const fallback = config.rules.indexOf('IP-CIDR,149.154.160.0/20,📲 TG兜底,no-resolve');
+        expect(region).toBeGreaterThan(0);
+        expect(fallback).toBeGreaterThan(region);
+        expect(config.rules.indexOf('RULE-SET,SOCIAL,📲 TG兜底')).toBeGreaterThan(fallback);
+        expect(config['proxy-groups'].find((g) => g.name === '📲 TG北美').proxies[0]).toBe(
+            '🇺🇸 美国节点'
+        );
+        expect(config['proxy-groups'].find((g) => g.name === '📲 TG欧洲').proxies[0]).toBe(
+            '🇩🇪 德国节点'
+        );
+    });
+
+    it('preserves DNS, node conversion and connection settings', () => {
+        for (const dnsMode of ['clean', 'polluted']) {
+            const config = render({ dnsMode });
+            const full = render({ ruleLevel: 'full', dnsMode });
+            expect(config.dns).toEqual(full.dns);
+            expect(config.proxies).toEqual(full.proxies);
+            for (const key of [
+                'mixed-port',
+                'allow-lan',
+                'bind-address',
+                'ipv6',
+                'external-controller',
+                'profile',
+            ])
+                expect(config[key]).toEqual(full[key]);
+        }
+    });
+
+    it('does not create invalid references or cross-region defaults when regions are absent', () => {
+        const config = yaml.load(generateBuiltinClashConfig('trojan://test@192.0.2.1:443#Unknown'));
+        validateReferences(config);
+        for (const name of ['📲 TG亚太', '📲 TG北美', '📲 TG欧洲'])
+            expect(config['proxy-groups'].find((g) => g.name === name).proxies[0]).toBe('REJECT');
+    });
+
+    it('keeps DNS override and other levels and Hiddify compatibility behavior', () => {
         const dns = {
             enable: true,
-            nameserver: ['https://1.1.1.1/dns-query'],
             'enhanced-mode': 'fake-ip',
+            nameserver: ['https://1.1.1.1/dns-query'],
         };
         const config = render({ customDnsOverride: JSON.stringify(dns) });
         expect(config.dns).toEqual(dns);
         expect(config['proxy-groups'].some((g) => g.name === '🌐 DNS 出口')).toBe(false);
-        validateReferences(config);
-    });
-
-    it('does not alter Base, Full, Relay or Hiddify routing', () => {
         for (const ruleLevel of ['base', 'full', 'relay'])
-            expect(render({ ruleLevel })['proxy-groups'].some((g) => g.name === '💬 Ai平台')).toBe(
+            expect(render({ ruleLevel })['proxy-groups'].some((g) => g.name === '🎬 Emby')).toBe(
                 false
             );
-        const hiddify = render({ hiddifyCompatible: true });
-        expect(hiddify.rules).toEqual(['MATCH,🚀 节点选择']);
-        expect(hiddify['rule-providers']).toBeUndefined();
-    });
-
-    it('does not let US match RUSSIA/AUS and does not leak a regional override to another region', () => {
-        const proxies = ['RUSSIA', 'AUS', 'SG-custom'].map((name) => ({ name }));
-        const { groups } = buildPersonalStandardPolicy(proxies, {
-            regionOverrides: [{ pattern: 'SG-custom', region: '美国' }],
-        });
-        expect(groups.find((g) => g.name === '🇺🇸 美国自动测速').proxies).toEqual(['SG-custom']);
-        expect(groups.find((g) => g.name === '🇸🇬 新加坡节点').proxies).toEqual(['REJECT']);
+        expect(render({ hiddifyCompatible: true }).rules).toEqual(['MATCH,🚀 节点选择']);
     });
 });
