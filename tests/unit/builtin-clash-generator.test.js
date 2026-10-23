@@ -129,16 +129,18 @@ describe('Clash 内置生成器', () => {
             })
         );
         const usGroup = fullConfig['proxy-groups'].find((group) => group.name === '🇺🇸 美国节点');
-        const sgGroup = fullConfig['proxy-groups'].find((group) => group.name === '🇸🇬 狮城节点');
+        const sgGroup = fullConfig['proxy-groups'].find((group) => group.name === '🇸🇬 新加坡节点');
 
         expect(usGroup.proxies).toContain('🇸🇬 机场A 新加坡 原生');
         expect(usGroup.proxies).toContain('🇺🇸 机场A US-West');
-        expect(sgGroup).toBeUndefined();
+        expect(sgGroup.proxies).toEqual(['REJECT']);
     });
 
     it('应为主要 AI 服务生成独立的代理组且不允许 DIRECT', () => {
         const parsed = yaml.load(
-            generateBuiltinClashConfig('trojan://password@example.com:443#US-01')
+            generateBuiltinClashConfig('trojan://password@example.com:443#US-01', {
+                ruleLevel: 'full',
+            })
         );
 
         for (const name of [

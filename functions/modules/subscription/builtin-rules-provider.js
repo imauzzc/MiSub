@@ -79,7 +79,7 @@ export const AI_DOMAIN_RULE_LINES = AI_SERVICE_RULES.flatMap((service) =>
 const AI_AUTO_GROUP = '🤖 AI 自动';
 const AI_FALLBACK_GROUP = '🤖 AI 故障转移';
 
-function dnsProxyGroup(proxyNames) {
+export function dnsProxyGroup(proxyNames) {
     return {
         name: DNS_PROXY_GROUP,
         type: 'url-test',
