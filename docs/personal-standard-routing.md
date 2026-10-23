@@ -1,23 +1,15 @@
-# Standard：仅三项修订
+# Standard：同步精简版分流
 
-使用“内置渲染 → 使用内置自动分流 → Standard”。本版撤回上一版整体导入远程 INI 的分组、规则和规则源，重新以原始内置 Standard 为基础，仅修改 Clash/Mihomo 输出的以下三项：
+内置 Clash/Mihomo Standard 已同步 clash 仓库精简版，来源提交 ec674a9b6a22b204bc82fc35924f3feb106b034e（config/MiSub_Compact_20261023.ini 及配套快照）。
 
-1. 原“🎥 流媒体”替换为“🎬 Emby”：移除 Netflix STREAM 规则源，使用已审核个人清单中的 8 个 Emby 域名；有日本节点时默认日本。
-2. 原 AI 服务分组及 AI 自动/故障转移辅助组全部聚合为“🤖 智能 AI”。原 AI 域名规则及 OpenAi 规则源保留，只改变目标组。候选使用原全局自动选择、故障转移、原地区组和手动切换，不增加 AI 域名或 DIRECT。
-3. 原 Telegram 组替换为“📲 TG亚太 / 📲 TG北美 / 📲 TG欧洲 / 📲 TG兜底”。区域 IP 规则优先于较宽兜底范围和域名规则，保留 no-resolve；最后使用内置 SOCIAL Telegram YAML 规则源补充。候选引用原有地区节点组，不另建地区分组。没有对应地区节点时该区域默认 REJECT，可手动选择其他候选。
+- 地区保留香港、台湾、日本、新加坡、美国、欧洲、其他；欧洲合并，地区只设一个手选组。无节点的地区不显示；全局自动选择和故障转移保留。内置版仍支持节点地区 metadata 和 regionOverrides，这些原生能力在通用 INI 中不能完整复现。
+- AI 使用同一份 MetaCubeX 六项服务快照，共 104 条，统一指向智能 AI，默认候选依次为美国、日本、新加坡、台湾、欧洲、手动切换。原生零散 AI 域名和旧 OpenAi 提供者已替换。清单来源版本和转换说明见 clash 仓库。
+- Emby 引用 https://raw.githubusercontent.com/imauzzc/clash/main/rules/Emby.list，当前 8 个域名，位置与精简版一致；后续在该文件统一维护。
+- Telegram 保留区域 IP、no-resolve 和域名兜底，与精简版展开后内容相同；欧洲出口首选欧洲组。缺少对应地区时区域组默认 REJECT，可手选出口。
+- 三份广告、Apple、Microsoft、google.com、github.com、GEOIP CN、MATCH 维持精简版的内容和顺序。DNS 配置和隐藏 DNS 出口保持原生设置；节点转换及其他连接选项保持原行为。
 
-原 Standard 的 DNS、隐藏 DNS 出口、节点转换、地区识别、节点选择、自动选择、故障转移、手动切换、广告、苹果、微软、Google、GitHub、GEOIP CN 和 MATCH 逻辑全部保留。原广告规则仍在首位。Emby 和 Telegram 新规则位于原 STREAM 规则的位置；其他规则保留原相对顺序。
+个人策略数据保存在 personal-standard-data.js，运行时不依赖另一个仓库读取策略定义。AI、Emby 等远程规则源仍由客户端拉取。后续修改 clash 模板需显式同步这里的策略数据，不能只修改模板后假定内置自动变化。
 
-不再导入上一版的 Google Play / Google CN 专项规则、UnBan、中国域名/公司 IP、ProxyLite 或自定义谷歌组。没有修改 DNS 或新增代理出口方案。Base、Full、Relay、Hiddify 兼容输出、其他客户端格式、自定义模板路径维持原行为。
+仅影响内置 Clash/Mihomo Standard；Base、Full、Relay、自定义模板、其他格式及 Hiddify 兼容输出维持原路径。更新并激活 OpenClash 订阅后，测试 Google Play 下载、AI、Emby 和 Telegram。配置检查通过不能代替用户真实网络测试。
 
-个人数据只保留来源提交 36ebc4f1b2317ceb8ee299c2cd07a7ccbd46ec65 的 Emby 和 Telegram 内联规则；后续修改远程 INI 不会自动修改本内置方案。
-
-部署后更新并激活 OpenClash 订阅，先保持当前路由器 DNS 和模式不变，用原来可用的节点测试 Google Play 下载。配置校验通过不代表手机下载已恢复，以实际测试为准。
-
-定时同步保留之前修复的合并策略，不再强制覆盖 fork 定制。
-
-Node 26 下运行测试时使用 NODE_OPTIONS=--no-experimental-webstorage，让 happy-dom 提供测试用浏览器存储。
-
-## 广告清单补齐
-
-在用户确认三项修订可正常使用之后，仅追加 BanProgramAD 和 BanEasyListChina，紧随原 BanAD，三者共用“🎬 视频广告”组。使用原 ACL4SSR 锁定提交及文本格式规则源。不增加其他分流或更改 DNS、Google、AI、Emby、Telegram 和地区组。
+Fork 自动同步的定时触发已移除，保留手动触发。Node 26 下测试使用 NODE_OPTIONS=--no-experimental-webstorage，让 happy-dom 提供测试用浏览器存储。

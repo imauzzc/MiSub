@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import yaml from 'js-yaml';
 import { generateBuiltinClashConfig } from '../../functions/modules/subscription/builtin-clash-generator.js';
 import { urlsToClashProxies } from '../../functions/utils/url-to-clash.js';
+import { buildPersonalStandardPolicy } from '../../functions/modules/subscription/personal-standard.js';
 import {
     POLICY_GROUPS,
     getBuiltinRules,
@@ -46,18 +47,27 @@ function validateReferences(config) {
     groups.forEach((g) => visit(g.name));
 }
 
-describe('Three bounded revisions to original Clash Standard', () => {
-    it('keeps every unrelated original group exactly, including DNS and region selectors', () => {
+describe('Compact personal Clash Standard', () => {
+    it('keeps unrelated groups and combines European nodes into one selector', () => {
         const config = render();
         const proxies = urlsToClashProxies(nodes.split('\n'));
         const original = pruneProxyGroups(POLICY_GROUPS.STD(proxies), proxies);
         const touched = (name) =>
-            name.startsWith('🤖') || name === '🎥 流媒体' || name === '📲 Telegram';
+            name.startsWith('🤖') ||
+            name === '🎥 流媒体' ||
+            name === '📲 Telegram' ||
+            name === '🚀 节点选择' ||
+            name.endsWith('节点') ||
+            name.startsWith('⚡️');
         expect(
             config['proxy-groups'].filter(
                 (g) => !touched(g.name) && !g.name.startsWith('📲 TG') && g.name !== '🎬 Emby'
             )
-        ).toEqual(original.filter((g) => !touched(g.name)));
+        ).toEqual(
+            original
+                .filter((g) => !touched(g.name))
+                .map(({ options, ...g }) => ({ ...g, ...options }))
+        );
         expect(
             config['proxy-groups'].filter((g) => g.name.startsWith('🤖')).map((g) => g.name)
         ).toEqual(['🤖 智能 AI']);
@@ -66,6 +76,14 @@ describe('Three bounded revisions to original Clash Standard', () => {
         );
         expect(config['proxy-groups'].some((g) => g.name === '🎥 流媒体')).toBe(false);
         expect(config['proxy-groups'].some((g) => g.name === '🎬 Emby')).toBe(true);
+        expect(config['proxy-groups'].find((g) => g.name === '🇪🇺 欧洲节点').proxies).toContain(
+            '🇩🇪 DE-01'
+        );
+        expect(
+            config['proxy-groups'].some((g) =>
+                /德国节点|荷兰节点|英国节点|法国节点|西班牙节点|⚡️/.test(g.name)
+            )
+        ).toBe(false);
         expect(
             config['proxy-groups'].filter((g) => g.name.startsWith('📲')).map((g) => g.name)
         ).toEqual(['📲 TG亚太', '📲 TG北美', '📲 TG欧洲', '📲 TG兜底']);
@@ -75,7 +93,11 @@ describe('Three bounded revisions to original Clash Standard', () => {
     it('preserves original rule ordering outside the three changes, including Google, ads and CN', () => {
         const config = render();
         const original = getBuiltinRules('STD', 'clash')
-            .filter((r) => typeof r === 'string' || r.provider !== 'STREAM')
+            .filter((r) =>
+                typeof r === 'string'
+                    ? !r.split(',')[2]?.startsWith('🤖')
+                    : !['STREAM', 'AI'].includes(r.provider)
+            )
             .map((r) => {
                 if (typeof r !== 'string') return `RULE-SET,${r.provider},${r.target}`;
                 const parts = r.split(',');
@@ -86,6 +108,7 @@ describe('Three bounded revisions to original Clash Standard', () => {
             config.rules.filter(
                 (r) =>
                     !r.includes(',🎬 Emby') &&
+                    !r.includes(',🤖 智能 AI') &&
                     !r.includes(',📲 TG') &&
                     !/^RULE-SET,ADS_(PROGRAM|CHINA),/.test(r)
             )
@@ -98,14 +121,18 @@ describe('Three bounded revisions to original Clash Standard', () => {
             'MATCH,🚀 节点选择',
         ]);
         expect(config.rules.some((r) => /gvt1|googleapis.cn|GoogleCN|UnBan/.test(r))).toBe(false);
-        expect(config.rules).toContain('DOMAIN-SUFFIX,claude.ai,🤖 智能 AI');
-        expect(config.rules).toContain('DOMAIN-SUFFIX,gemini.google.com,🤖 智能 AI');
+        expect(config.rules[3]).toBe('RULE-SET,AI,🤖 智能 AI');
+        expect(config['rule-providers'].AI.url).toContain('/rules/compact/AI_MetaCubeX.list');
+        expect(config['proxy-groups'].find((g) => g.name === '🤖 智能 AI').proxies[0]).toBe(
+            '🇺🇸 美国节点'
+        );
     });
 
     it('retains original providers except Netflix and adds Telegram and the two ad supplements', () => {
         const config = render();
         const originals = getRemoteProviderDefinitions('clash', getBuiltinRules('STD', 'clash'));
         delete originals.STREAM;
+        delete originals.AI;
         for (const [name, provider] of Object.entries(originals))
             expect(config['rule-providers'][name]).toEqual(provider);
         expect(Object.keys(config['rule-providers']).sort()).toEqual([
@@ -114,6 +141,7 @@ describe('Three bounded revisions to original Clash Standard', () => {
             'ADS_PROGRAM',
             'AI',
             'APPLE',
+            'EMBY',
             'MICROSOFT',
             'SOCIAL',
         ]);
@@ -153,7 +181,10 @@ describe('Three bounded revisions to original Clash Standard', () => {
 
     it('keeps Emby rules and Telegram regional priority and no-resolve', () => {
         const config = render();
-        expect(config.rules).toContain('DOMAIN-SUFFIX,emby.wtf,🎬 Emby');
+        expect(config.rules).toContain('RULE-SET,EMBY,🎬 Emby');
+        expect(config['rule-providers'].EMBY.url).toBe(
+            'https://raw.githubusercontent.com/imauzzc/clash/main/rules/Emby.list'
+        );
         expect(config.rules).toContain('IP-CIDR6,2001:b28:f23f::/48,📲 TG亚太,no-resolve');
         const region = config.rules.indexOf('IP-CIDR,149.154.168.0/22,📲 TG亚太,no-resolve');
         const fallback = config.rules.indexOf('IP-CIDR,149.154.160.0/20,📲 TG兜底,no-resolve');
@@ -164,7 +195,7 @@ describe('Three bounded revisions to original Clash Standard', () => {
             '🇺🇸 美国节点'
         );
         expect(config['proxy-groups'].find((g) => g.name === '📲 TG欧洲').proxies[0]).toBe(
-            '🇩🇪 德国节点'
+            '🇪🇺 欧洲节点'
         );
     });
 
@@ -191,6 +222,24 @@ describe('Three bounded revisions to original Clash Standard', () => {
         validateReferences(config);
         for (const name of ['📲 TG亚太', '📲 TG北美', '📲 TG欧洲'])
             expect(config['proxy-groups'].find((g) => g.name === name).proxies[0]).toBe('REJECT');
+    });
+
+    it('honors region overrides and metadata and never duplicates regional membership', () => {
+        const policy = buildPersonalStandardPolicy(
+            [
+                { name: 'HK-custom', metadata: { region: '香港' } },
+                { name: 'opaque', metadata: { region: '德国' } },
+                { name: '未知' },
+            ],
+            { regionOverrides: [{ pattern: '^HK-custom$', region: '日本' }] }
+        );
+        const regions = policy.groups.filter((g) => g.name.endsWith('节点'));
+        expect(regions.find((g) => g.name === '🇯🇵 日本节点').proxies).toEqual(['HK-custom']);
+        expect(regions.find((g) => g.name === '🇪🇺 欧洲节点').proxies).toEqual(['opaque']);
+        expect(regions.find((g) => g.name === '🌍 其他节点').proxies).toEqual(['未知']);
+        expect(regions.flatMap((g) => g.proxies).sort()).toEqual(
+            ['HK-custom', 'opaque', '未知'].sort()
+        );
     });
 
     it('keeps DNS override and other levels and Hiddify compatibility behavior', () => {
