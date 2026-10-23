@@ -83,7 +83,12 @@ describe('Three bounded revisions to original Clash Standard', () => {
                 return parts.join(',');
             });
         expect(
-            config.rules.filter((r) => !r.includes(',🎬 Emby') && !r.includes(',📲 TG'))
+            config.rules.filter(
+                (r) =>
+                    !r.includes(',🎬 Emby') &&
+                    !r.includes(',📲 TG') &&
+                    !/^RULE-SET,ADS_(PROGRAM|CHINA),/.test(r)
+            )
         ).toEqual(original);
         expect(config.rules[0]).toBe('RULE-SET,ADS,🎬 视频广告');
         expect(config.rules.slice(-4)).toEqual([
@@ -97,7 +102,7 @@ describe('Three bounded revisions to original Clash Standard', () => {
         expect(config.rules).toContain('DOMAIN-SUFFIX,gemini.google.com,🤖 智能 AI');
     });
 
-    it('retains original YAML providers except Netflix and adds only built-in Telegram', () => {
+    it('retains original providers except Netflix and adds Telegram and the two ad supplements', () => {
         const config = render();
         const originals = getRemoteProviderDefinitions('clash', getBuiltinRules('STD', 'clash'));
         delete originals.STREAM;
@@ -105,6 +110,8 @@ describe('Three bounded revisions to original Clash Standard', () => {
             expect(config['rule-providers'][name]).toEqual(provider);
         expect(Object.keys(config['rule-providers']).sort()).toEqual([
             'ADS',
+            'ADS_CHINA',
+            'ADS_PROGRAM',
             'AI',
             'APPLE',
             'MICROSOFT',
@@ -113,6 +120,35 @@ describe('Three bounded revisions to original Clash Standard', () => {
         expect(config['rule-providers'].SOCIAL.url).toContain(
             '/Clash/Providers/Ruleset/Telegram.yaml'
         );
+    });
+
+    it('adds exactly the two requested ad lists immediately after BanAD using the same policy', () => {
+        const config = render();
+        expect(config.rules.slice(0, 3)).toEqual([
+            'RULE-SET,ADS,🎬 视频广告',
+            'RULE-SET,ADS_PROGRAM,🎬 视频广告',
+            'RULE-SET,ADS_CHINA,🎬 视频广告',
+        ]);
+        for (const [name, file] of [
+            ['ADS_PROGRAM', 'BanProgramAD'],
+            ['ADS_CHINA', 'BanEasyListChina'],
+        ]) {
+            expect(config['rule-providers'][name]).toMatchObject({
+                type: 'http',
+                behavior: 'classical',
+                format: 'text',
+                interval: 86400,
+                path: `./ruleset/${name}.list`,
+            });
+            expect(config['rule-providers'][name].url).toBe(
+                `https://cdn.jsdelivr.net/gh/ACL4SSR/ACL4SSR@433381ebc4b1de59350fa8bed2a04a888228f801/Clash/${file}.list`
+            );
+        }
+        expect(config['proxy-groups'].find((g) => g.name === '🎬 视频广告').proxies).toEqual([
+            'REJECT',
+            'DIRECT',
+        ]);
+        validateReferences(config);
     });
 
     it('keeps Emby rules and Telegram regional priority and no-resolve', () => {

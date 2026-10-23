@@ -4,11 +4,13 @@ import {
     getBuiltinRules,
     getRemoteProviderDefinitions,
     pruneProxyGroups,
+    pinRemoteRuleUrl,
+    PINNED_RULE_REVISIONS,
 } from './builtin-rules-provider.js';
 
 const AI_GROUP = '🤖 智能 AI';
 
-/** Apply only Emby, aggregated AI and regional Telegram to the original Standard. */
+/** Apply the personal service groups and supplemental ads to the original Standard. */
 export function buildPersonalStandardPolicy(proxies, options = {}) {
     const originalGroups = pruneProxyGroups(POLICY_GROUPS.STD(proxies, options), proxies);
     const regions = originalGroups.filter(
@@ -59,6 +61,21 @@ export function buildPersonalStandardPolicy(proxies, options = {}) {
     const originalRules = getBuiltinRules('STD', 'clash');
     const providers = getRemoteProviderDefinitions('clash', originalRules);
     delete providers.STREAM;
+    for (const [name, file] of [
+        ['ADS_PROGRAM', 'BanProgramAD'],
+        ['ADS_CHINA', 'BanEasyListChina'],
+    ]) {
+        providers[name] = {
+            type: 'http',
+            behavior: 'classical',
+            format: 'text',
+            url: pinRemoteRuleUrl(
+                `https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/${PINNED_RULE_REVISIONS.ACL4SSR}/Clash/${file}.list`
+            ),
+            path: `./ruleset/${name}.list`,
+            interval: 86400,
+        };
+    }
     // Reuse the original built-in Telegram YAML provider for the domain/IP fallback.
     Object.assign(
         providers,
@@ -76,6 +93,12 @@ export function buildPersonalStandardPolicy(proxies, options = {}) {
             return [parts.join(',')];
         }
         if (rule.provider === 'STREAM') return [...additions, 'RULE-SET,SOCIAL,📲 TG兜底'];
+        if (rule.provider === 'ADS')
+            return [
+                'RULE-SET,ADS,🎬 视频广告',
+                'RULE-SET,ADS_PROGRAM,🎬 视频广告',
+                'RULE-SET,ADS_CHINA,🎬 视频广告',
+            ];
         return [
             `RULE-SET,${rule.provider},${rule.target.startsWith('🤖') ? AI_GROUP : rule.target}`,
         ];

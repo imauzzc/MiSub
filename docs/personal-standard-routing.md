@@ -8,7 +8,7 @@
 
 原 Standard 的 DNS、隐藏 DNS 出口、节点转换、地区识别、节点选择、自动选择、故障转移、手动切换、广告、苹果、微软、Google、GitHub、GEOIP CN 和 MATCH 逻辑全部保留。原广告规则仍在首位。Emby 和 Telegram 新规则位于原 STREAM 规则的位置；其他规则保留原相对顺序。
 
-不再导入上一版的 Google Play / Google CN 专项规则、UnBan、中国域名/公司 IP、额外广告清单、ProxyLite 或自定义谷歌组。没有修改 DNS 或新增代理出口方案。Base、Full、Relay、Hiddify 兼容输出、其他客户端格式、自定义模板路径维持原行为。
+不再导入上一版的 Google Play / Google CN 专项规则、UnBan、中国域名/公司 IP、ProxyLite 或自定义谷歌组。没有修改 DNS 或新增代理出口方案。Base、Full、Relay、Hiddify 兼容输出、其他客户端格式、自定义模板路径维持原行为。
 
 个人数据只保留来源提交 36ebc4f1b2317ceb8ee299c2cd07a7ccbd46ec65 的 Emby 和 Telegram 内联规则；后续修改远程 INI 不会自动修改本内置方案。
 
@@ -17,3 +17,7 @@
 定时同步保留之前修复的合并策略，不再强制覆盖 fork 定制。
 
 Node 26 下运行测试时使用 NODE_OPTIONS=--no-experimental-webstorage，让 happy-dom 提供测试用浏览器存储。
+
+## 广告清单补齐
+
+在用户确认三项修订可正常使用之后，仅追加 BanProgramAD 和 BanEasyListChina，紧随原 BanAD，三者共用“🎬 视频广告”组。使用原 ACL4SSR 锁定提交及文本格式规则源。不增加其他分流或更改 DNS、Google、AI、Emby、Telegram 和地区组。
